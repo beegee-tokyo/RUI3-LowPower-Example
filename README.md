@@ -3,7 +3,7 @@
 
 # Example how to achieve lowest power consumption with a custom firmware created with RUI3
 
-One problem often seen when writing custom code with RUI3 is that the loop() is used together with **`api.system.sleep.all()`**. This is IMHO not the best solution to achieve lowest power consumption and brings some timing problems, as when a LoRa or LoRaWAN packet is sent, the TX finished event will wake up the system and it will not go back to sleep.
+One problem often seen when writing custom code with RUI3 is that the **`loop()`** is used together with **`api.system.sleep.all()`**. This is IMHO not the best solution to achieve lowest power consumption and brings some timing problems, as when a LoRa or LoRaWAN packet is sent, the TX finished event will wake up the system and it will not go back to sleep.
 
 This example code is _**NOT**_ using the loop at all. Instead it is complete event driven. The WisDuo/WisBlock module is sleeping unless an event occurs. An event can be a timer callback or an external interrupt, or if using LoRaWAN Class C, it can be a packet received from the LoRaWAN server.
 
@@ -188,6 +188,8 @@ void send_packet(void)
 ```
 
 ----
+
+# Get RUI3 devices
 
 Get a RAKwireless RUI3 WisDuo stamp module, breakout board or evaluation board from our [store](https://store.rakwireless.com/collections/new-menu-modules)
 

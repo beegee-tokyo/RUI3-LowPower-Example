@@ -8,30 +8,7 @@
  * @copyright Copyright (c) 2023
  *
  */
-#include <Arduino.h>
-
-// Debug
-// Debug output set to 0 to disable app debug output
-#ifndef MY_DEBUG
-#define MY_DEBUG 1
-#endif
-
-#if MY_DEBUG > 0
-#define MYLOG(tag, ...)                  \
-	do                                   \
-	{                                    \
-		if (tag)                         \
-			Serial.printf("[%s] ", tag); \
-		Serial.printf(__VA_ARGS__);      \
-		Serial.printf("\n");             \
-	} while (0);                         \
-	delay(100)
-#else
-#define MYLOG(...)
-#endif
-
-// Forward declarations
-void send_packet(void);
+#include "app.h"
 
 /** Packet is confirmed/unconfirmed (Set with AT commands) */
 bool g_confirmed_mode = false;
@@ -103,8 +80,8 @@ void sendCallback(int32_t status)
 
 /**
  * @brief LoRa P2P callback if a packet was received
- * 
- * @param data 
+ *
+ * @param data
  */
 void recv_cb(rui_lora_p2p_recv_t data)
 {
@@ -119,7 +96,7 @@ void recv_cb(rui_lora_p2p_recv_t data)
 
 /**
  * @brief LoRa P2P callback if a packet was sent
- * 
+ *
  */
 void send_cb(void)
 {
@@ -176,6 +153,22 @@ void setup()
 
 	// Initialize module
 	Wire.begin();
+
+	// Register the custom AT command to get device status
+	// if (!init_status_at())
+	// {
+	// 	MYLOG("SETUP", "Add custom AT command STATUS fail");
+	// }
+
+	// Register the custom AT command to set the send interval
+	if (!init_interval_at())
+	{
+		MYLOG("SETUP", "Add custom AT command Send Interval fail");
+	}
+
+	// Get saved sending interval from flash
+	get_at_setting();
+
 	digitalWrite(LED_GREEN, LOW);
 
 	// Create a timer.
@@ -209,6 +202,8 @@ void setup()
 
 		MYLOG("SETUP", "DR = %d", g_data_rate);
 	}
+
+	api.system.lpm.set(1);
 }
 
 /**
@@ -251,8 +246,8 @@ void sensor_handler(void *)
  */
 void loop()
 {
-	// api.system.sleep.all();
-	api.system.scheduler.task.destroy();
+	api.system.sleep.all();
+	// api.system.scheduler.task.destroy();
 }
 
 /**

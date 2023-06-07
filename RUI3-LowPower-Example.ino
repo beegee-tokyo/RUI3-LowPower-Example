@@ -137,7 +137,7 @@ void setup()
 	digitalWrite(LED_BLUE, HIGH);
 
 	pinMode(WB_IO2, OUTPUT);
-	digitalWrite(WB_IO2, HIGH);
+	digitalWrite(WB_IO2, LOW);
 
 	// Start Serial
 	Serial.begin(115200);

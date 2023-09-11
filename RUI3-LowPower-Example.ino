@@ -29,6 +29,8 @@ uint8_t set_fPort = 2;
 /** Payload buffer */
 uint8_t g_solution_data[64];
 
+uint16_t my_fcount = 1;
+
 /**
  * @brief Callback after join request cycle
  *
@@ -105,6 +107,8 @@ void send_cb(void)
 	tx_active = false;
 }
 
+bool switch_on = true;
+
 /**
  * @brief Arduino setup, called once after reboot/power-up
  *
@@ -145,6 +149,8 @@ void setup()
 	// Delay for 5 seconds to give the chance for AT+BOOT
 	delay(5000);
 
+	// api.system.firmwareVersion.set("RUI_4.0.6_RAK11720");
+
 	Serial.println("RAKwireless RUI3 Node");
 	Serial.println("------------------------------------------------------");
 	Serial.println("Setup the device with WisToolBox or AT commands before using it");
@@ -155,10 +161,10 @@ void setup()
 	Wire.begin();
 
 	// Register the custom AT command to get device status
-	// if (!init_status_at())
-	// {
-	// 	MYLOG("SETUP", "Add custom AT command STATUS fail");
-	// }
+	if (!init_status_at())
+	{
+		MYLOG("SETUP", "Add custom AT command STATUS fail");
+	}
 
 	// Register the custom AT command to set the send interval
 	if (!init_interval_at())
@@ -217,6 +223,18 @@ void sensor_handler(void *)
 	MYLOG("UPLINK", "Start");
 	digitalWrite(LED_BLUE, HIGH);
 
+	// if (switch_on)
+	// {
+	// 	switch_on = false;
+	// 	Wire.begin();
+	// 	SPI.begin();
+	// }
+	// else
+	// {
+	// 	switch_on = true;
+	// 	Wire.end();
+	// 	SPI.end();
+	// }
 	if (api.lorawan.nwm.get() == 1)
 	{ // Check if the node has joined the network
 		if (!api.lorawan.njs.get())
@@ -261,6 +279,8 @@ void send_packet(void)
 	// Check if it is LoRaWAN
 	if (api.lorawan.nwm.get() == 1)
 	{
+		MYLOG("UPLINK", "Sending packet # %d", my_fcount);
+		my_fcount++;
 		// Send the packet
 		if (api.lorawan.send(4, g_solution_data, set_fPort, g_confirmed_mode, g_confirmed_retry))
 		{

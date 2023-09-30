@@ -210,6 +210,11 @@ void setup()
 	}
 
 	api.system.lpm.set(1);
+
+#ifndef _VARIANT_RAK3172_ &&_VARIANT_RAK3172_SIP_
+	Serial6.begin(115200, RAK_AT_MODE);
+	api.ble.advertise.start(30);
+#endif
 }
 
 /**

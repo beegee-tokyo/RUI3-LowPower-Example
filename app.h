@@ -9,6 +9,7 @@
  * 
  */
 #include <Arduino.h>
+#include <ArduinoJson.h>
 
 // Debug
 // Debug output set to 0 to disable app debug output

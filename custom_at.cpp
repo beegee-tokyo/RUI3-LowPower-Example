@@ -10,6 +10,26 @@
  */
 #include "app.h"
 
+#ifdef _VARIANT_RAK3172_ || _VARIANT_RAK3172_SIP_
+#define AT_PRINTF(...)              \
+	do                              \
+	{                               \
+		Serial.printf(__VA_ARGS__); \
+		Serial.printf("r\\n");        \
+	} while (0);                    \
+	delay(100)
+#else // RAK4630 || RAK11720
+#define AT_PRINTF(...)               \
+	do                               \
+	{                                \
+		Serial.printf(__VA_ARGS__);  \
+		Serial.printf("\r\n");         \
+		Serial6.printf(__VA_ARGS__); \
+		Serial6.printf("\r\n");        \
+	} while (0);                     \
+	delay(100)
+#endif
+
 /** Send Interval offset in flash */
 #define SEND_FREQ_OFFSET 0x00000002 // length 4 bytes
 
@@ -47,8 +67,7 @@ int interval_send_handler(SERIAL_PORT port, char *cmd, stParam *param)
 {
 	if (param->argc == 1 && !strcmp(param->argv[0], "?"))
 	{
-		Serial.print(cmd);
-		Serial.printf("=%ld\r\n", g_send_repeat_time / 1000);
+		AT_PRINTF("%s=%ld", cmd, g_send_repeat_time / 1000);
 	}
 	else if (param->argc == 1)
 	{
@@ -125,72 +144,72 @@ int status_handler(SERIAL_PORT port, char *cmd, stParam *param)
 
 	if (param->argc == 1 && !strcmp(param->argv[0], "?"))
 	{
-		Serial.println("Device Status:");
+		AT_PRINTF("Device Status:");
 		value_str = api.system.hwModel.get();
 		value_str.toUpperCase();
-		Serial.printf("Module: %s\r\n", value_str.c_str());
-		Serial.printf("Version: %s\r\n", api.system.firmwareVer.get().c_str());
-		Serial.printf("Send time: %d s\r\n", g_send_repeat_time / 1000);
+		AT_PRINTF("Module: %s", value_str.c_str());
+		AT_PRINTF("Version: %s", api.system.firmwareVer.get().c_str());
+		AT_PRINTF("Send time: %d s", g_send_repeat_time / 1000);
 		nw_mode = api.lorawan.nwm.get();
-		Serial.printf("Network mode %s\r\n", nwm_list[nw_mode]);
+		AT_PRINTF("Network mode %s", nwm_list[nw_mode]);
 		if (nw_mode == 1)
 		{
-			Serial.printf("Network %s\r\n", api.lorawan.njs.get() ? "joined" : "not joined");
+			AT_PRINTF("Network %s", api.lorawan.njs.get() ? "joined" : "not joined");
 			region_set = api.lorawan.band.get();
-			Serial.printf("Region: %d\r\n", region_set);
-			Serial.printf("Region: %s\r\n", regions_list[region_set]);
+			AT_PRINTF("Region: %d", region_set);
+			AT_PRINTF("Region: %s", regions_list[region_set]);
 			if (api.lorawan.njm.get())
 			{
-				Serial.println("OTAA mode");
+				AT_PRINTF("OTAA mode");
 				api.lorawan.deui.get(key_eui, 8);
-				Serial.printf("DevEUI = %02X%02X%02X%02X%02X%02X%02X%02X\r\n",
-							  key_eui[0], key_eui[1], key_eui[2], key_eui[3],
-							  key_eui[4], key_eui[5], key_eui[6], key_eui[7]);
+				AT_PRINTF("DevEUI = %02X%02X%02X%02X%02X%02X%02X%02X",
+						  key_eui[0], key_eui[1], key_eui[2], key_eui[3],
+						  key_eui[4], key_eui[5], key_eui[6], key_eui[7]);
 				api.lorawan.appeui.get(key_eui, 8);
-				Serial.printf("AppEUI = %02X%02X%02X%02X%02X%02X%02X%02X\r\n",
-							  key_eui[0], key_eui[1], key_eui[2], key_eui[3],
-							  key_eui[4], key_eui[5], key_eui[6], key_eui[7]);
+				AT_PRINTF("AppEUI = %02X%02X%02X%02X%02X%02X%02X%02X",
+						  key_eui[0], key_eui[1], key_eui[2], key_eui[3],
+						  key_eui[4], key_eui[5], key_eui[6], key_eui[7]);
 				api.lorawan.appkey.get(key_eui, 16);
-				Serial.printf("AppKey = %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n",
-							  key_eui[0], key_eui[1], key_eui[2], key_eui[3],
-							  key_eui[4], key_eui[5], key_eui[6], key_eui[7],
-							  key_eui[8], key_eui[9], key_eui[10], key_eui[11],
-							  key_eui[12], key_eui[13], key_eui[14], key_eui[15]);
+				AT_PRINTF("AppKey = %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+						  key_eui[0], key_eui[1], key_eui[2], key_eui[3],
+						  key_eui[4], key_eui[5], key_eui[6], key_eui[7],
+						  key_eui[8], key_eui[9], key_eui[10], key_eui[11],
+						  key_eui[12], key_eui[13], key_eui[14], key_eui[15]);
 			}
 			else
 			{
-				Serial.println("ABP mode");
+				AT_PRINTF("ABP mode");
 				api.lorawan.appskey.get(key_eui, 16);
-				Serial.printf("AppsKey = %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n",
-							  key_eui[0], key_eui[1], key_eui[2], key_eui[3],
-							  key_eui[4], key_eui[5], key_eui[6], key_eui[7],
-							  key_eui[8], key_eui[9], key_eui[10], key_eui[11],
-							  key_eui[12], key_eui[13], key_eui[14], key_eui[15]);
+				AT_PRINTF("AppsKey = %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+						  key_eui[0], key_eui[1], key_eui[2], key_eui[3],
+						  key_eui[4], key_eui[5], key_eui[6], key_eui[7],
+						  key_eui[8], key_eui[9], key_eui[10], key_eui[11],
+						  key_eui[12], key_eui[13], key_eui[14], key_eui[15]);
 				api.lorawan.nwkskey.get(key_eui, 16);
-				Serial.printf("NwsKey = %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n",
-							  key_eui[0], key_eui[1], key_eui[2], key_eui[3],
-							  key_eui[4], key_eui[5], key_eui[6], key_eui[7],
-							  key_eui[8], key_eui[9], key_eui[10], key_eui[11],
-							  key_eui[12], key_eui[13], key_eui[14], key_eui[15]);
+				AT_PRINTF("NwsKey = %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+						  key_eui[0], key_eui[1], key_eui[2], key_eui[3],
+						  key_eui[4], key_eui[5], key_eui[6], key_eui[7],
+						  key_eui[8], key_eui[9], key_eui[10], key_eui[11],
+						  key_eui[12], key_eui[13], key_eui[14], key_eui[15]);
 				api.lorawan.daddr.set(key_eui, 4);
-				Serial.printf("DevAddr = %02X%02X%02X%02X\r\n",
-							  key_eui[0], key_eui[1], key_eui[2], key_eui[3]);
+				AT_PRINTF("DevAddr = %02X%02X%02X%02X",
+						  key_eui[0], key_eui[1], key_eui[2], key_eui[3]);
 			}
 		}
 		else if (nw_mode == 0)
 		{
-			Serial.printf("Frequency = %d\r\n", api.lorawan.pfreq.get());
-			Serial.printf("SF = %d\r\n", api.lorawan.psf.get());
-			Serial.printf("BW = %d\r\n", api.lorawan.pbw.get());
-			Serial.printf("CR = %d\r\n", api.lorawan.pcr.get());
-			Serial.printf("Preamble length = %d\r\n", api.lorawan.ppl.get());
-			Serial.printf("TX power = %d\r\n", api.lorawan.ptp.get());
+			AT_PRINTF("Frequency = %d", api.lorawan.pfreq.get());
+			AT_PRINTF("SF = %d", api.lorawan.psf.get());
+			AT_PRINTF("BW = %d", api.lorawan.pbw.get());
+			AT_PRINTF("CR = %d", api.lorawan.pcr.get());
+			AT_PRINTF("Preamble length = %d", api.lorawan.ppl.get());
+			AT_PRINTF("TX power = %d", api.lorawan.ptp.get());
 		}
 		else
 		{
-			Serial.printf("Frequency = %d\r\n", api.lorawan.pfreq.get());
-			Serial.printf("Bitrate = %d\r\n", api.lorawan.pbr.get());
-			Serial.printf("Deviaton = %d\r\n", api.lorawan.pfdev.get());
+			AT_PRINTF("Frequency = %d", api.lorawan.pfreq.get());
+			AT_PRINTF("Bitrate = %d", api.lorawan.pbr.get());
+			AT_PRINTF("Deviaton = %d", api.lorawan.pfdev.get());
 		}
 	}
 	else

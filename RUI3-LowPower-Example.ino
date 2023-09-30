@@ -211,7 +211,7 @@ void setup()
 
 	api.system.lpm.set(1);
 
-#ifndef _VARIANT_RAK3172_ &&_VARIANT_RAK3172_SIP_
+#ifndef _VARIANT_RAK3172_ && _VARIANT_RAK3172_SIP_
 	Serial6.begin(115200, RAK_AT_MODE);
 	api.ble.advertise.start(30);
 #endif
@@ -256,6 +256,10 @@ void sensor_handler(void *)
 		g_solution_data[idx] = value;
 		value++;
 	}
+	g_solution_data[0] = 0x01;
+	g_solution_data[1] = 0x74;
+	g_solution_data[2] = 0x01;
+	g_solution_data[3] = 0x8c;
 
 	// Send the packet
 	send_packet();

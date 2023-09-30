@@ -10,7 +10,7 @@
  */
 #include "app.h"
 
-#ifdef _VARIANT_RAK3172_ || _VARIANT_RAK3172_SIP_
+#if defined(_VARIANT_RAK3172_) || defined(_VARIANT_RAK3172_SIP_)
 #define AT_PRINTF(...)              \
 	do                              \
 	{                               \

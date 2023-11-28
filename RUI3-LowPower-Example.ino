@@ -107,8 +107,6 @@ void send_cb(void)
 	tx_active = false;
 }
 
-bool switch_on = true;
-
 /**
  * @brief Arduino setup, called once after reboot/power-up
  *
@@ -154,7 +152,7 @@ void setup()
 	Serial.println("RAKwireless RUI3 Node");
 	Serial.println("------------------------------------------------------");
 	Serial.println("Setup the device with WisToolBox or AT commands before using it");
-	Serial.printf("RUI3 %s\n", api.system.firmwareVersion.get().c_str());
+	// Serial.printf("RUI3 %s\n", api.system.firmwareVersion.get().c_str());
 	Serial.println("------------------------------------------------------");
 
 	// Initialize module
@@ -230,18 +228,6 @@ void sensor_handler(void *)
 	MYLOG("UPLINK", "Start");
 	digitalWrite(LED_BLUE, HIGH);
 
-	// if (switch_on)
-	// {
-	// 	switch_on = false;
-	// 	Wire.begin();
-	// 	SPI.begin();
-	// }
-	// else
-	// {
-	// 	switch_on = true;
-	// 	Wire.end();
-	// 	SPI.end();
-	// }
 	if (api.lorawan.nwm.get() == 1)
 	{ // Check if the node has joined the network
 		if (!api.lorawan.njs.get())

@@ -15,7 +15,7 @@
 	do                              \
 	{                               \
 		Serial.printf(__VA_ARGS__); \
-		Serial.printf("r\\n");        \
+		Serial.printf("\r\n");        \
 	} while (0);                    \
 	delay(100)
 #else // RAK4630 || RAK11720

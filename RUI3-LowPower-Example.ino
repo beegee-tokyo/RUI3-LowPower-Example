@@ -147,12 +147,12 @@ void setup()
 	// Delay for 5 seconds to give the chance for AT+BOOT
 	delay(5000);
 
-	// api.system.firmwareVersion.set("RUI_4.0.6_RAK11720");
+	api.system.firmwareVersion.set("RUI3-Low-Power-V1.0.0");
 
 	Serial.println("RAKwireless RUI3 Node");
 	Serial.println("------------------------------------------------------");
 	Serial.println("Setup the device with WisToolBox or AT commands before using it");
-	// Serial.printf("RUI3 %s\n", api.system.firmwareVersion.get().c_str());
+	Serial.printf("Version %s\n", api.system.firmwareVersion.get().c_str());
 	Serial.println("------------------------------------------------------");
 
 	// Initialize module

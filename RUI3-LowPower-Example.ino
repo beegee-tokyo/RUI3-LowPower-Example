@@ -26,10 +26,8 @@ volatile bool tx_active = false;
 /** fPort to send packages */
 uint8_t set_fPort = 2;
 
-/** Payload buffer */
-uint8_t g_solution_data[64];
-
-uint16_t my_fcount = 1;
+/** LoRaWAN packet */
+WisCayenne g_solution_data(255);
 
 /**
  * @brief Callback after join request cycle
@@ -42,8 +40,6 @@ void joinCallback(int32_t status)
 	if (status != 0)
 	{
 		MYLOG("JOIN-CB", "LoRaWan OTAA - join fail! \r\n");
-		// To be checked if this makes sense
-		// api.lorawan.join();
 	}
 	else
 	{
@@ -55,7 +51,7 @@ void joinCallback(int32_t status)
 /**
  * @brief LoRaWAN callback after packet was received
  *
- * @param data Structure with the received data
+ * @param data pointer to structure with the received data
  */
 void receiveCallback(SERVICE_LORA_RECEIVE_T *data)
 {
@@ -66,6 +62,18 @@ void receiveCallback(SERVICE_LORA_RECEIVE_T *data)
 	}
 	Serial.print("\r\n");
 	tx_active = false;
+}
+
+/**
+ * @brief Callback for LinkCheck result
+ *
+ * @param data pointer to structure with the linkcheck result
+ */
+void linkcheckCallback(SERVICE_LORA_LINKCHECK_T *data)
+{
+	MYLOG("LC_CB", "%s Margin %d GW# %d RSSI%d SNR %d", data->State == 0 ? "Success" : "Failed",
+		  data->DemodMargin, data->NbGateways,
+		  data->Rssi, data->Snr);
 }
 
 /**
@@ -83,7 +91,7 @@ void sendCallback(int32_t status)
 /**
  * @brief LoRa P2P callback if a packet was received
  *
- * @param data
+ * @param data pointer to the data with the received data
  */
 void recv_cb(rui_lora_p2p_recv_t data)
 {
@@ -108,6 +116,16 @@ void send_cb(void)
 }
 
 /**
+ * @brief LoRa P2P callback for CAD result
+ *
+ * @param result true if activity was detected, false if no activity was detected
+ */
+void cad_cb(bool result)
+{
+	MYLOG("CAD-P2P-CB", "P2P CAD reports %s", result ? "activity" : "no activity");
+}
+
+/**
  * @brief Arduino setup, called once after reboot/power-up
  *
  */
@@ -126,11 +144,13 @@ void setup()
 		api.lorawan.registerRecvCallback(receiveCallback);
 		api.lorawan.registerSendCallback(sendCallback);
 		api.lorawan.registerJoinCallback(joinCallback);
+		api.lorawan.registerLinkCheckCallback(linkcheckCallback);
 	}
 	else // Setup for LoRa P2P
 	{
-		api.lorawan.registerPRecvCallback(recv_cb);
-		api.lorawan.registerPSendCallback(send_cb);
+		api.lora.registerPRecvCallback(recv_cb);
+		api.lora.registerPSendCallback(send_cb);
+		api.lora.registerPSendCADCallback(cad_cb);
 	}
 
 	pinMode(LED_GREEN, OUTPUT);
@@ -177,10 +197,10 @@ void setup()
 
 	// Create a timer.
 	api.system.timer.create(RAK_TIMER_0, sensor_handler, RAK_TIMER_PERIODIC);
-	if (g_send_repeat_time != 0)
+	if (custom_parameters.send_interval != 0)
 	{
 		// Start a timer.
-		api.system.timer.start(RAK_TIMER_0, g_send_repeat_time, NULL);
+		api.system.timer.start(RAK_TIMER_0, custom_parameters.send_interval, NULL);
 	}
 
 	// Check if it is LoRa P2P
@@ -189,6 +209,11 @@ void setup()
 		digitalWrite(LED_BLUE, LOW);
 
 		sensor_handler(NULL);
+	}
+	else
+	{
+		// Enable permanent linkcheck
+		api.lorawan.linkcheck.set(2);
 	}
 
 	if (api.lorawan.nwm.get() == 1)
@@ -207,8 +232,9 @@ void setup()
 		MYLOG("SETUP", "DR = %d", g_data_rate);
 	}
 
+	// Enable low power mode
 	api.system.lpm.set(1);
-	
+
 #if defined(_VARIANT_RAK3172_) || defined(_VARIANT_RAK3172_SIP_)
 // No BLE
 #else
@@ -229,7 +255,8 @@ void sensor_handler(void *)
 	digitalWrite(LED_BLUE, HIGH);
 
 	if (api.lorawan.nwm.get() == 1)
-	{ // Check if the node has joined the network
+	{ 
+		// Check if the node has joined the network
 		if (!api.lorawan.njs.get())
 		{
 			MYLOG("UPLINK", "Not joined, skip sending");
@@ -237,17 +264,12 @@ void sensor_handler(void *)
 		}
 	}
 
+	// Clear payload
+	g_solution_data.reset();
+
 	// Create payload
-	char value = 0x31;
-	for (int idx = 0; idx < 4; idx++)
-	{
-		g_solution_data[idx] = value;
-		value++;
-	}
-	g_solution_data[0] = 0x01;
-	g_solution_data[1] = 0x74;
-	g_solution_data[2] = 0x01;
-	g_solution_data[3] = 0x8c;
+	// Add battery voltage
+	g_solution_data.addVoltage(LPP_CHANNEL_BATT, api.system.bat.get());
 
 	// Send the packet
 	send_packet();
@@ -276,10 +298,8 @@ void send_packet(void)
 	// Check if it is LoRaWAN
 	if (api.lorawan.nwm.get() == 1)
 	{
-		MYLOG("UPLINK", "Sending packet # %d", my_fcount);
-		my_fcount++;
 		// Send the packet
-		if (api.lorawan.send(4, g_solution_data, set_fPort, g_confirmed_mode, g_confirmed_retry))
+		if (api.lorawan.send(g_solution_data.getSize(), g_solution_data.getBuffer(), set_fPort, g_confirmed_mode, g_confirmed_retry))
 		{
 			MYLOG("UPLINK", "Packet enqueued, size 4");
 			tx_active = true;
@@ -293,11 +313,11 @@ void send_packet(void)
 	// It is P2P
 	else
 	{
-		MYLOG("UPLINK", "Send packet with size 4 over P2P");
+		MYLOG("UPLINK", "Send packet over P2P");
 
 		digitalWrite(LED_BLUE, LOW);
 
-		if (api.lorawan.psend(4, g_solution_data))
+		if (api.lora.psend(g_solution_data.getSize(), g_solution_data.getBuffer(), true))
 		{
 			MYLOG("UPLINK", "Packet enqueued");
 		}

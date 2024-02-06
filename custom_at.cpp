@@ -30,14 +30,13 @@
 	delay(100)
 #endif
 
-/** Send Interval offset in flash */
-#define SEND_FREQ_OFFSET 0x00000002 // length 4 bytes
+/** Custom flash parameters */
+custom_param_s custom_parameters;
+
 
 // Forward declarations
 int interval_send_handler(SERIAL_PORT port, char *cmd, stParam *param);
 int status_handler(SERIAL_PORT port, char *cmd, stParam *param);
-
-extern uint32_t g_send_repeat_time;
 
 /**
  * @brief Add send interval AT command
@@ -67,36 +66,41 @@ int interval_send_handler(SERIAL_PORT port, char *cmd, stParam *param)
 {
 	if (param->argc == 1 && !strcmp(param->argv[0], "?"))
 	{
-		AT_PRINTF("%s=%ld", cmd, g_send_repeat_time / 1000);
+		AT_PRINTF("%s=%ld", cmd, custom_parameters.send_interval / 1000);
 	}
 	else if (param->argc == 1)
 	{
-		MYLOG("AT_CMD", "param->argv[0] >> %s", param->argv[0]);
+		uint32_t old_send_freq = custom_parameters.send_interval;
+
+		// MYLOG("AT_CMD", "param->argv[0] >> %s", param->argv[0]);
 		for (int i = 0; i < strlen(param->argv[0]); i++)
 		{
 			if (!isdigit(*(param->argv[0] + i)))
 			{
-				MYLOG("AT_CMD", "%d is no digit", i);
+				// MYLOG("AT_CMD", "%d is no digit", i);
 				return AT_PARAM_ERROR;
 			}
 		}
 
 		uint32_t new_send_freq = strtoul(param->argv[0], NULL, 10);
 
-		MYLOG("AT_CMD", "Requested interval %ld", new_send_freq);
+		MYLOG("AT_CMD", "Requested interval %ld s", new_send_freq);
 
-		g_send_repeat_time = new_send_freq * 1000;
+		custom_parameters.send_interval = new_send_freq * 1000;
 
-		MYLOG("AT_CMD", "New interval %ld", g_send_repeat_time);
+		MYLOG("AT_CMD", "New interval %ld ms", custom_parameters.send_interval);
 		// Stop the timer
 		api.system.timer.stop(RAK_TIMER_0);
-		if (g_send_repeat_time != 0)
+		if (custom_parameters.send_interval != 0)
 		{
 			// Restart the timer
-			api.system.timer.start(RAK_TIMER_0, g_send_repeat_time, NULL);
+			api.system.timer.start(RAK_TIMER_0, custom_parameters.send_interval, NULL);
 		}
-		// Save custom settings
+		// Save custom settings if needed
+		if (old_send_freq != custom_parameters.send_interval)
+		{
 		save_at_setting();
+	}
 	}
 	else
 	{
@@ -120,8 +124,6 @@ bool init_status_at(void)
 								 RAK_ATCMD_PERM_READ);
 }
 
-/** Regions as text array */
-char *regions_list[] = {"EU433", "CN470", "RU864", "IN865", "EU868", "US915", "AU915", "KR920", "AS923", "AS923-2", "AS923-3", "AS923-4"};
 /** Network modes as text array*/
 char *nwm_list[] = {"P2P", "LoRaWAN", "FSK"};
 
@@ -142,14 +144,15 @@ int status_handler(SERIAL_PORT port, char *cmd, stParam *param)
 	int region_set = 0;
 	uint8_t key_eui[16] = {0}; // efadff29c77b4829acf71e1a6e76f713
 
-	if (param->argc == 1 && !strcmp(param->argv[0], "?"))
+	if ((param->argc == 1 && !strcmp(param->argv[0], "?")) || (param->argc == 0))
 	{
 		AT_PRINTF("Device Status:");
 		value_str = api.system.hwModel.get();
 		value_str.toUpperCase();
 		AT_PRINTF("Module: %s", value_str.c_str());
 		AT_PRINTF("Version: %s", api.system.firmwareVer.get().c_str());
-		AT_PRINTF("Send time: %d s", g_send_repeat_time / 1000);
+		AT_PRINTF("Send time: %d s", custom_parameters.send_interval / 1000);
+		/// \todo
 		nw_mode = api.lorawan.nwm.get();
 		AT_PRINTF("Network mode %s", nwm_list[nw_mode]);
 		if (nw_mode == 1)
@@ -157,7 +160,6 @@ int status_handler(SERIAL_PORT port, char *cmd, stParam *param)
 			AT_PRINTF("Network %s", api.lorawan.njs.get() ? "joined" : "not joined");
 			region_set = api.lorawan.band.get();
 			AT_PRINTF("Region: %d", region_set);
-			AT_PRINTF("Region: %s", regions_list[region_set]);
 			if (api.lorawan.njm.get())
 			{
 				AT_PRINTF("OTAA mode");
@@ -198,18 +200,18 @@ int status_handler(SERIAL_PORT port, char *cmd, stParam *param)
 		}
 		else if (nw_mode == 0)
 		{
-			AT_PRINTF("Frequency = %d", api.lorawan.pfreq.get());
-			AT_PRINTF("SF = %d", api.lorawan.psf.get());
-			AT_PRINTF("BW = %d", api.lorawan.pbw.get());
-			AT_PRINTF("CR = %d", api.lorawan.pcr.get());
-			AT_PRINTF("Preamble length = %d", api.lorawan.ppl.get());
-			AT_PRINTF("TX power = %d", api.lorawan.ptp.get());
+			AT_PRINTF("Freq. = %d", api.lora.pfreq.get());
+			AT_PRINTF("SF = %d", api.lora.psf.get());
+			AT_PRINTF("BW = %d", api.lora.pbw.get());
+			AT_PRINTF("CR = %d", api.lora.pcr.get());
+			AT_PRINTF("Preamble length = %d", api.lora.ppl.get());
+			AT_PRINTF("TX power = %d", api.lora.ptp.get());
 		}
 		else
 		{
-			AT_PRINTF("Frequency = %d", api.lorawan.pfreq.get());
-			AT_PRINTF("Bitrate = %d", api.lorawan.pbr.get());
-			AT_PRINTF("Deviaton = %d", api.lorawan.pfdev.get());
+			AT_PRINTF("Freq. = %d", api.lora.pfreq.get());
+			AT_PRINTF("Bitrate = %d", api.lora.pbr.get());
+			AT_PRINTF("Deviaton = %d", api.lora.pfdev.get());
 		}
 	}
 	else
@@ -226,30 +228,26 @@ int status_handler(SERIAL_PORT port, char *cmd, stParam *param)
  */
 bool get_at_setting(void)
 {
-	uint8_t flash_value[16];
-	if (!api.system.flash.get(SEND_FREQ_OFFSET, flash_value, 5))
+	custom_param_s temp_params;
+	uint8_t *flash_value = (uint8_t *)&temp_params.valid_flag;
+	if (!api.system.flash.get(0, flash_value, sizeof(custom_param_s)))
 	{
 		MYLOG("AT_CMD", "Failed to read send interval from Flash");
 		return false;
 	}
-	if (flash_value[4] != 0xAA)
+	MYLOG("AT_CMD", "Got flag: %02X", temp_params.valid_flag);
+	MYLOG("AT_CMD", "Got send interval: %08X", temp_params.send_interval);
+	if (flash_value[0] != 0xAA)
 	{
-		MYLOG("AT_CMD", "No valid send interval found, set to default, read 0X%02X 0X%02X 0X%02X 0X%02X",
-			  flash_value[0], flash_value[1],
-			  flash_value[2], flash_value[3]);
-		g_send_repeat_time = 0;
+		MYLOG("AT_CMD", "No valid send interval found, set to default");
+		custom_parameters.valid_flag = 0xAA;
+		custom_parameters.send_interval = 0;
 		save_at_setting();
 		return false;
 	}
-	MYLOG("AT_CMD", "Read send interval 0X%02X 0X%02X 0X%02X 0X%02X",
-		  flash_value[0], flash_value[1],
-		  flash_value[2], flash_value[3]);
-	g_send_repeat_time = 0;
-	g_send_repeat_time |= flash_value[0] << 0;
-	g_send_repeat_time |= flash_value[1] << 8;
-	g_send_repeat_time |= flash_value[2] << 16;
-	g_send_repeat_time |= flash_value[3] << 24;
-	MYLOG("AT_CMD", "Send interval found %ld", g_send_repeat_time);
+	custom_parameters.send_interval = temp_params.send_interval;
+
+	MYLOG("AT_CMD", "Send interval found %ld", custom_parameters.send_interval);
 	return true;
 }
 
@@ -261,21 +259,17 @@ bool get_at_setting(void)
  */
 bool save_at_setting(void)
 {
-	uint8_t flash_value[16] = {0};
+	uint8_t *flash_value = (uint8_t *)&custom_parameters.valid_flag;
+
 	bool wr_result = false;
-	flash_value[0] = (uint8_t)(g_send_repeat_time >> 0);
-	flash_value[1] = (uint8_t)(g_send_repeat_time >> 8);
-	flash_value[2] = (uint8_t)(g_send_repeat_time >> 16);
-	flash_value[3] = (uint8_t)(g_send_repeat_time >> 24);
-	flash_value[4] = 0xAA;
-	MYLOG("AT_CMD", "Writing send interval 0X%02X 0X%02X 0X%02X 0X%02X ",
-		  flash_value[0], flash_value[1],
-		  flash_value[2], flash_value[3]);
-	wr_result = api.system.flash.set(SEND_FREQ_OFFSET, flash_value, 5);
+
+	// MYLOG("AT_CMD", "Writing flag: %02X", custom_parameters.valid_flag);
+	// MYLOG("AT_CMD", "Writing send interval 0X%08X ", custom_parameters.send_interval);
+	wr_result = api.system.flash.set(0, flash_value, sizeof(custom_param_s));
 	if (!wr_result)
 	{
 		// Retry
-		wr_result = api.system.flash.set(SEND_FREQ_OFFSET, flash_value, 5);
+		wr_result = api.system.flash.set(0, flash_value, sizeof(custom_param_s));
 	}
 	wr_result = true;
 	return wr_result;

@@ -36,3 +36,18 @@ bool init_status_at(void);
 bool init_interval_at(void);
 bool get_at_setting(void);
 bool save_at_setting(void);
+
+/** Custom flash parameters structure */
+struct custom_param_s
+{
+	uint8_t valid_flag = 0xAA;
+	uint32_t send_interval = 0;
+};
+
+/** Custom flash parameters */
+extern custom_param_s custom_parameters;
+
+// LoRaWAN stuff
+#include "wisblock_cayenne.h"
+// Cayenne LPP Channel numbers per sensor value
+#define LPP_CHANNEL_BATT 1	// Base Board
